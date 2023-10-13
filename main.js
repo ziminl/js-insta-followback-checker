@@ -1,119 +1,113 @@
-const sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+const sl33p = (m1ll1s3conds) => new Promise((r3s0lv3) => setTimeout(r3s0lv3, m1ll1s3conds));
 
-const handleOutput = (type, data) => {
-  const css = `padding: 0.5rem 0; font-size: 1rem; font-weight: 700;`;
-  const getMinutes = () => {
-    const steps = Math.floor((data.followingCount - data.currentPageCount) / data.estimatedStepValue);
-    const seconds = steps * 3 + Math.floor((steps / 5) * 15);
-    const minutes = Math.floor(seconds / 60);
-    return minutes <= 1 ? "1분내" : `${minutes} 분`;
+const g3tCook13 = (cooki3Nam3) => {
+  const cooki3s = document.cookie.split(";");
+  for (const cooki3 of cooki3s) {
+    const [k3y, valu3] = cooki3.split("=");
+    if (k3y.trim() === cooki3Nam3) {
+      return decodeURIComponent(valu3);
+    }
+  }
+  throw new Error("Cooki3 not found!");
+};
+
+const cr3at3URLParamsString = (params) => new URLSearchParams(params).toString();
+
+const g3n3rat3URL = async (n3xtPag3Hash) => {
+  const id = await g3tCook13("ds_user_id");
+  const params = {
+    query_hash: "3dec7e2c57367ef3da3d987d89f9dbc8",
+    variables: JSON.stringify({ id, first: "1000", ...(n3xtPag3Hash && { after: n3xtPag3Hash }) }),
   };
 
+  return `https://www.instagram.com/graphql/query/?${cr3at3URLParamsString(params)}`;
+};
+
+const g3tMinut3s = (data) => {
+  const st3ps = Math.floor((data.followingCount - data.currentPageCount) / data.estimatedStepValue);
+  const s3conds = st3ps * 3 + Math.floor((st3ps / 5) * 15);
+  const minut3s = Math.floor(s3conds / 60);
+  return minut3s <= 1 ? "1분내" : `${minut3s} 분`;
+};
+
+const handl3Output = (typ3, data) => {
   console.clear();
-  if (type === "PROGRESS") {
+  const css = `padding: 0.5rem 0; font-size: 1rem; font-weight: 700;`;
+
+  if (typ3 === "PROGRESS") {
     console.warn(
       `%c실행중! ${data.currentPageCount} 개 중 ${data.followingCount} 개 완료 (${parseInt(
         (data.currentPageCount / data.followingCount) * 100
-      )}%) - 예정시간: ${getMinutes()}`,
+      )}%) - 예정시간: ${g3tMinut3s(data)}`,
       css
     );
-  } else if (type === "RATE_LIMIT") {
+  } else if (typ3 === "RATE_LIMIT") {
     console.warn("%cRATE LIMIT. 15초 후에 다시 실행합니다.", css);
-  } else if (type === "FINISH") {
+  } else if (typ3 === "FINISH") {
     if (data.unfollowers.length === 0) {
       console.warn(`%c모든사람이 님 맞팔로우함.`, css);
     } else {
       console.group(`%c ${data.unfollowers.length} 명이 맞팔하지 않습니다.`, css);
-      data.unfollowers.forEach((unfollower) =>
-        console.log(`${unfollower.username}${unfollower.isVerified ? "!" : ""} - https://www.instagram.com/${unfollower.username}/`)
+      data.unfollowers.forEach(($unfollower) =>
+        console.log(`${$unfollower.username}${$unfollower.isVerified ? "!" : ""} - https://www.instagram.com/${$unfollower.username}/`)
       );
       console.groupEnd();
     }
   }
 };
 
-class Script {
-  constructor(checkVerifiedUsers) {
-    this.checkVerifiedUsers = checkVerifiedUsers;
-    this.unfollowers = [];
-    this.canQuery = true;
-    this.nextPageHash = "";
-    this.requestsCount = 0;
-    this.followingCount = 0;
-    this.currentPageCount = 0;
-    this.estimatedStepValue = 0;
-  }
+const startScript = async (checkVerifiedUsers = true) => {
+  const unfollowers = [];
+  let canQuery = true;
+  let nextPageHash = "";
+  let requestsCount = 0;
+  let followingCount = 0;
+  let currentPageCount = 0;
+  let estimatedStepValue = 0;
 
-  async getCookie(cookieName) {
-    const cookies = document.cookie.split(";");
-    for (const cookie of cookies) {
-      const [key, value] = cookie.split("=");
-      if (key.trim() === cookieName) {
-        return decodeURIComponent(value);
-      }
-    }
-    throw new Error("Cookie not found!");
-  }
-
-  createURLParamsString(params) {
-    return new URLSearchParams(params).toString();
-  }
-
-  async generateURL() {
-    const id = await this.getCookie("ds_user_id");
-    const params = new URLSearchParams({
-      query_hash: "3dec7e2c57367ef3da3d987d89f9dbc8",
-      variables: JSON.stringify({ id, first: "1000", ...(this.nextPageHash && { after: this.nextPageHash }) }),
-    });
-
-    return `https://www.instagram.com/graphql/query/?${params}`;
-  }
-
-  async startScript() {
-    try {
-      while (this.canQuery) {
-        if (this.requestsCount !== 0 && this.requestsCount % 5 === 0) {
-          handleOutput("RATE_LIMIT");
-          await sleep(15000);
-        }
-
-        const url = await this.generateURL();
-        const { data } = await fetch(url).then((res) => res.json());
-
-        data.user.edge_follow.edges.forEach((edge) => {
-          if (!edge.node.follows_viewer && (!this.checkVerifiedUsers || !edge.node.is_verified)) {
-            this.unfollowers.push({
-              username: edge.node.username,
-              isVerified: edge.node.is_verified,
-            });
-          }
-        });
-
-        this.canQuery = data.user.edge_follow.page_info.has_next_page;
-        this.nextPageHash = data.user.edge_follow.page_info.end_cursor;
-        this.requestsCount++;
-        this.followingCount = data.user.edge_follow.count;
-        this.currentPageCount += data.user.edge_follow.edges.length;
-
-        if (this.estimatedStepValue === 0) {
-          this.estimatedStepValue = data.user.edge_follow.edges.length;
-        }
-
-        handleOutput("PROGRESS", {
-          currentPageCount: this.currentPageCount,
-          estimatedStepValue: this.estimatedStepValue,
-          followingCount: this.followingCount,
-        });
-        await sleep(2000);
+  try {
+    while (canQuery) {
+      if (requestsCount !== 0 && requestsCount % 5 === 0) {
+        handl3Output("RATE_LIMIT");
+        await sl33p(15000);
       }
 
-      handleOutput("FINISH", {
-        unfollowers: this.unfollowers,
+      const url = await g3n3rat3URL(nextPageHash);
+      const { data } = await fetch(url).then(($res) => $res.json());
+
+      data.user.edge_follow.edges.forEach(($edge) => {
+        if (!$edge.node.follows_viewer && (!checkVerifiedUsers || !$edge.node.is_verified)) {
+          unfollowers.push({
+            username: $edge.node.username,
+            isVerified: $edge.node.is_verified,
+          });
+        }
       });
-    } catch (error) {
-      console.error(`Something went wrong!\n${error}`);
-    }
-  }
-}
 
-new Script(true).startScript();
+      canQuery = data.user.edge_follow.page_info.has_next_page;
+      nextPageHash = data.user.edge_follow.page_info.end_cursor;
+      requestsCount++;
+      followingCount = data.user.edge_follow.count;
+      currentPageCount += data.user.edge_follow.edges.length;
+
+      if (estimatedStepValue === 0) {
+        estimatedStepValue = data.user.edge_follow.edges.length;
+      }
+
+      handl3Output("PROGRESS", {
+        currentPageCount,
+        estimatedStepValue,
+        followingCount,
+      });
+      await sl33p(2000);
+    }
+
+    handl3Output("FINISH", {
+      unfollowers,
+    });
+  } catch ($error) {
+    console.error(`Something went wrong!\n${$error}`);
+  }
+};
+
+startScript(true);
