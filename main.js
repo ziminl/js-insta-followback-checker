@@ -104,7 +104,7 @@ class Script {
           estimatedStepValue: this.estimatedStepValue,
           followingCount: this.followingCount,
         });
-        await sleep(3000);
+        await sleep(2000);
       }
 
       handleOutput("FINISH", {
