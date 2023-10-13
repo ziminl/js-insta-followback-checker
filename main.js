@@ -33,7 +33,7 @@ const handleOutput = (type, data) => {
 };
 
 class Script {
-  constructor(checkVerifiedUsers, cookies) {
+  constructor(checkVerifiedUsers) {
     this.checkVerifiedUsers = checkVerifiedUsers;
     this.unfollowers = [];
     this.canQuery = true;
@@ -42,11 +42,11 @@ class Script {
     this.followingCount = 0;
     this.currentPageCount = 0;
     this.estimatedStepValue = 0;
-    this.cookies = cookies;
   }
 
   async getCookie(cookieName) {
-    for (const cookie of this.cookies.split(";")) {
+    const cookies = document.cookie.split(";");
+    for (const cookie of cookies) {
       const [key, value] = cookie.split("=");
       if (key.trim() === cookieName) {
         return decodeURIComponent(value);
@@ -116,7 +116,4 @@ class Script {
   }
 }
 
-const cookies = 'your_cookie_string_here';
-new Script(true, cookies).startScript();
-
-
+new Script(true).startScript();
